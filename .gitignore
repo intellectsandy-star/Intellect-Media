@@ -15,3 +15,5 @@ tmp/
 Thumbs.db
 .vscode/
 .idea/
+
+*.cdr
