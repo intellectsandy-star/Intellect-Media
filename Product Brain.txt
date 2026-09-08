@@ -1,0 +1,57 @@
+PROJECT BRAIN
+│
+├── A. IDENTITY & CONSTITUTION
+│   ├── 01 Project Identity
+│   ├── 02 Project DNA
+│   ├── 03 Architecture Constitution
+│   ├── 04 Authority
+│   └── 05 Invariant / Law
+│
+├── B. COGNITIVE STATE
+│   ├── 06 World State
+│   ├── 07 Goal State
+│   ├── 08 Work Graph
+│   ├── 09 Decision Memory
+│   ├── 10 Knowledge Memory
+│   └── 11 Artifact Intelligence
+│
+├── C. CONTEXT INTELLIGENCE
+│   ├── 12 Context Compiler
+│   ├── 13 Context Priority
+│   ├── 14 Context Compression
+│   └── 15 Context Resurrection
+│
+├── D. AUTONOMOUS DEVELOPMENT
+│   ├── 16 Intent Interpreter
+│   ├── 17 Planner / Decomposer
+│   ├── 18 Execution Controller
+│   ├── 19 Verification Engine
+│   └── 20 Quality Gate
+│
+├── E. CONTINUITY & RECOVERY
+│   ├── 21 Execution Journal
+│   ├── 22 Checkpoint Engine
+│   ├── 23 State Fingerprint
+│   ├── 24 Drift Detection
+│   └── 25 Recovery / Fail-Closed
+│
+├── F. MULTI-AGENT CONTINUITY
+│   ├── 26 Agent Registry
+│   ├── 27 Capability Contract
+│   ├── 28 Handoff Protocol
+│   └── 29 Conflict Arbitration
+│
+├── G. REPOSITORY INTELLIGENCE
+│   ├── 30 Repository State Map
+│   ├── 31 Change Lineage
+│   └── 32 Git/GitHub Reconciliation
+│
+└── H. GPT RELIABILITY & FAILURE INTELLIGENCE
+    ├── 33 Output Trust & Hallucination Guard
+    ├── 34 Reasoning & Decision Validation
+    ├── 35 Context Integrity & Memory Guard
+    ├── 36 Instruction / Prompt Injection Firewall
+    ├── 37 Agency & Action Safety
+    ├── 38 Behavioral Drift & Model Change
+    ├── 39 Failure Classification & Adaptive Recovery
+    └── 40 Output Audit / Reproducibility / Trust Ledger
