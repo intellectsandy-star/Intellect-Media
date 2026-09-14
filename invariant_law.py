@@ -1,451 +1,810 @@
 """
-INTELLECT MEDIA — PROJECT BRAIN / LAYER 05
-INVARIANT / LAW
+INTELLECT MEDIA — INVARIANT / LAW
+Layer 05 of the canonical 40-layer Project Brain.
 
-A deterministic, fail-closed law engine protecting the Project Brain from
-invalid state, unauthorized mutation, architectural drift, unsafe execution,
-and broken authority boundaries.
+Project Identity     = WHO the project is
+Project DNA          = WHY the project exists
+Architecture         = WHAT structure is allowed
+Authority            = WHO MAY DECIDE / ACT / OVERRIDE
+Invariant / Law      = WHAT MUST NEVER BE BROKEN
+
+Invariant / Law is the non-negotiable integrity layer.
+
+Its purpose is to:
+- define immutable system laws,
+- evaluate proposed state/actions against those laws,
+- fail closed when critical invariants are violated,
+- prevent lower layers from silently bypassing higher authority,
+- provide deterministic integrity fingerprints,
+- support auditability and future autonomous verification.
+
+This file is intentionally dependency-light and deterministic.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-import hashlib
+from hashlib import sha256
 import json
-from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Tuple
+from typing import Final, Mapping
 
-PROJECT_ID = "intellect-media"
-PROJECT_NAME = "Intellect Media"
-LAYER_ID = 5
-LAYER_NAME = "Invariant / Law"
-LAYER_VERSION = "1.0.0"
-BRAIN_ARCHITECTURE_VERSION = "40.0.0"
 
+# ---------------------------------------------------------------------------
+# CANONICAL PROJECT CONSTANTS
+# ---------------------------------------------------------------------------
+
+PROJECT_ID: Final[str] = "intellect-media"
+CANONICAL_NAME: Final[str] = "Intellect Media"
+
+INVARIANT_LAW_VERSION: Final[str] = "1.0.0"
+BRAIN_ARCHITECTURE_VERSION: Final[str] = "40.0.0"
+
+LAYER_NUMBER: Final[int] = 5
+LAYER_NAME: Final[str] = "Invariant / Law"
+
+
+# ---------------------------------------------------------------------------
+# ENUMERATIONS
+# ---------------------------------------------------------------------------
 
 class LawSeverity(str, Enum):
+    """Severity of a law violation."""
+
+    INFO = "info"
+    WARNING = "warning"
+    HIGH = "high"
+    CRITICAL = "critical"
+    FATAL = "fatal"
+
+
+SEVERITY_RANK: Final[dict[LawSeverity, int]] = {
+    LawSeverity.INFO: 0,
+    LawSeverity.WARNING: 1,
+    LawSeverity.HIGH: 2,
+    LawSeverity.CRITICAL: 3,
+    LawSeverity.FATAL: 4,
+}
+
+
+class LawCategory(str, Enum):
+    """Canonical categories of project invariants."""
+
+    IDENTITY = "identity"
+    DNA = "dna"
+    ARCHITECTURE = "architecture"
+    AUTHORITY = "authority"
+    INTEGRITY = "integrity"
+    SAFETY = "safety"
+    CONTINUITY = "continuity"
+    STATE = "state"
+    EXECUTION = "execution"
+    AUDIT = "audit"
+    REPOSITORY = "repository"
+    EVOLUTION = "evolution"
+
+
+class ViolationAction(str, Enum):
+    """Action the system must take when a law is violated."""
+
+    ALLOW = "allow"
+    WARN = "warn"
     BLOCK = "block"
     FAIL_CLOSED = "fail_closed"
     ESCALATE = "escalate"
-    WARN = "warn"
 
 
-class LawScope(str, Enum):
-    IDENTITY = "identity"
-    ARCHITECTURE = "architecture"
-    AUTHORITY = "authority"
-    STATE = "state"
-    EXECUTION = "execution"
-    REPOSITORY = "repository"
-    AGENT = "agent"
-    CONTEXT = "context"
-    INTEGRITY = "integrity"
-    SAFETY = "safety"
+# ---------------------------------------------------------------------------
+# LAW DEFINITION
+# ---------------------------------------------------------------------------
 
+@dataclass(frozen=True, slots=True)
+class InvariantLaw:
+    """
+    One canonical project law.
 
-class ViolationCode(str, Enum):
-    UNKNOWN_LAW = "unknown_law"
-    LAW_DISABLED = "law_disabled"
-    INVALID_STATE = "invalid_state"
-    IDENTITY_MISMATCH = "identity_mismatch"
-    AUTHORITY_MISSING = "authority_missing"
-    ARCHITECTURE_DRIFT = "architecture_drift"
-    IMMUTABLE_MUTATION = "immutable_mutation"
-    FINGERPRINT_MISMATCH = "fingerprint_mismatch"
-    UNSAFE_ACTION = "unsafe_action"
-    CONTEXT_UNTRUSTED = "context_untrusted"
-    REPOSITORY_DRIFT = "repository_drift"
-    INTERNAL_ERROR = "internal_error"
+    Laws are declarative at Layer 05 and can later be consumed by
+    verification/execution layers.
+    """
 
-
-@dataclass(frozen=True)
-class Law:
     law_id: str
     name: str
-    scope: LawScope
+    category: LawCategory
     severity: LawSeverity
     description: str
+
     immutable: bool = True
-    enabled: bool = True
-    dependencies: Tuple[str, ...] = ()
-    tags: Tuple[str, ...] = ()
-
-    def canonical(self) -> Dict[str, Any]:
-        return {
-            "law_id": self.law_id,
-            "name": self.name,
-            "scope": self.scope.value,
-            "severity": self.severity.value,
-            "description": self.description,
-            "immutable": self.immutable,
-            "enabled": self.enabled,
-            "dependencies": list(self.dependencies),
-            "tags": list(self.tags),
-        }
+    fail_closed: bool = True
+    requires_authority: bool = True
+    auditable: bool = True
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class LawViolation:
+    """Deterministic representation of a detected law violation."""
+
     law_id: str
-    code: ViolationCode
-    message: str
-    blocking: bool = True
-    evidence: Mapping[str, Any] = field(default_factory=dict)
+    severity: LawSeverity
+    action: ViolationAction
+    reason: str
+    evidence: str = ""
 
 
-@dataclass(frozen=True)
-class LawDecision:
+@dataclass(frozen=True, slots=True)
+class LawEvaluation:
+    """Result of evaluating a proposed condition against project laws."""
+
     allowed: bool
-    violations: Tuple[LawViolation, ...] = ()
-    warnings: Tuple[LawViolation, ...] = ()
-    evaluated_laws: Tuple[str, ...] = ()
-    fingerprint: str = ""
+    fail_closed: bool
+    violations: tuple[LawViolation, ...]
+    warnings: tuple[LawViolation, ...]
+    fingerprint: str
 
 
-@dataclass(frozen=True)
-class Invariant:
-    invariant_id: str
-    name: str
-    scope: LawScope
-    description: str
-    validator: Callable[[Mapping[str, Any]], bool]
-    dependencies: Tuple[str, ...] = ()
+# ---------------------------------------------------------------------------
+# CANONICAL LAWS
+# ---------------------------------------------------------------------------
+
+CANONICAL_LAWS: Final[tuple[InvariantLaw, ...]] = (
+    InvariantLaw(
+        law_id="LAW-001",
+        name="Identity Immutability",
+        category=LawCategory.IDENTITY,
+        severity=LawSeverity.FATAL,
+        description=(
+            "Project Identity must never be silently changed by a lower "
+            "authority layer, model, agent, tool, or runtime process."
+        ),
+    ),
+    InvariantLaw(
+        law_id="LAW-002",
+        name="DNA Integrity",
+        category=LawCategory.DNA,
+        severity=LawSeverity.FATAL,
+        description=(
+            "Project DNA cannot be silently redefined by execution layers "
+            "or autonomous actors."
+        ),
+    ),
+    InvariantLaw(
+        law_id="LAW-003",
+        name="Architecture Integrity",
+        category=LawCategory.ARCHITECTURE,
+        severity=LawSeverity.CRITICAL,
+        description=(
+            "The canonical 40-layer Brain architecture must not be "
+            "silently reordered, duplicated, removed, or redefined."
+        ),
+    ),
+    InvariantLaw(
+        law_id="LAW-004",
+        name="Authority Precedence",
+        category=LawCategory.AUTHORITY,
+        severity=LawSeverity.FATAL,
+        description=(
+            "No lower authority may outrank, bypass, or silently override "
+            "a higher authority."
+        ),
+    ),
+    InvariantLaw(
+        law_id="LAW-005",
+        name="Ambiguity Fails Closed",
+        category=LawCategory.SAFETY,
+        severity=LawSeverity.CRITICAL,
+        description=(
+            "When authority, identity, intent, state, or rule applicability "
+            "is materially ambiguous, the action must not proceed."
+        ),
+    ),
+    InvariantLaw(
+        law_id="LAW-006",
+        name="Integrity Before Execution",
+        category=LawCategory.INTEGRITY,
+        severity=LawSeverity.CRITICAL,
+        description=(
+            "Integrity and validity checks must occur before a critical "
+            "state-changing action is accepted."
+        ),
+    ),
+    InvariantLaw(
+        law_id="LAW-007",
+        name="No Hidden State Mutation",
+        category=LawCategory.STATE,
+        severity=LawSeverity.CRITICAL,
+        description=(
+            "Canonical state must not be mutated invisibly or without "
+            "a traceable authority and audit record."
+        ),
+    ),
+    InvariantLaw(
+        law_id="LAW-008",
+        name="Verification Before Claim",
+        category=LawCategory.EXECUTION,
+        severity=LawSeverity.HIGH,
+        description=(
+            "The system must not claim successful completion without "
+            "objective verification evidence."
+        ),
+    ),
+    InvariantLaw(
+        law_id="LAW-009",
+        name="Continuity Preservation",
+        category=LawCategory.CONTINUITY,
+        severity=LawSeverity.CRITICAL,
+        description=(
+            "Project continuity data must remain reconstructable across "
+            "sessions, agents, executions, and recovery events."
+        ),
+    ),
+    InvariantLaw(
+        law_id="LAW-010",
+        name="Auditability",
+        category=LawCategory.AUDIT,
+        severity=LawSeverity.HIGH,
+        description=(
+            "Critical decisions, state changes, overrides, and failures "
+            "must remain attributable and reconstructable."
+        ),
+    ),
+    InvariantLaw(
+        law_id="LAW-011",
+        name="Repository Truth",
+        category=LawCategory.REPOSITORY,
+        severity=LawSeverity.CRITICAL,
+        description=(
+            "Repository state must not be falsely represented as canonical, "
+            "verified, committed, or synchronized without evidence."
+        ),
+    ),
+    InvariantLaw(
+        law_id="LAW-012",
+        name="Controlled Evolution",
+        category=LawCategory.EVOLUTION,
+        severity=LawSeverity.CRITICAL,
+        description=(
+            "Canonical laws may evolve only through explicit authority, "
+            "versioned change control, validation, and recorded lineage."
+        ),
+    ),
+)
 
 
-class InvariantLaw:
-    """Central deterministic law registry and fail-closed evaluator."""
+EXPECTED_LAW_COUNT: Final[int] = 12
 
-    def __init__(self) -> None:
-        self._laws: Dict[str, Law] = {
-            law.law_id: law for law in self._default_laws()
-        }
-        self._invariants: Dict[str, Invariant] = {
-            invariant.invariant_id: invariant
-            for invariant in self._default_invariants()
-        }
-        self._fingerprint = self._compute_fingerprint()
 
-    @staticmethod
-    def _default_laws() -> Iterable[Law]:
-        yield Law("LAW-001", "Identity is authoritative", LawScope.IDENTITY,
-                  LawSeverity.FAIL_CLOSED,
-                  "Runtime state must remain bound to the canonical project identity.",
-                  tags=("root", "identity", "fail_closed"))
-        yield Law("LAW-002", "Architecture constitution is binding", LawScope.ARCHITECTURE,
-                  LawSeverity.BLOCK,
-                  "No runtime decision may knowingly violate the architecture constitution.",
-                  tags=("constitution", "architecture"))
-        yield Law("LAW-003", "Authority precedes action", LawScope.AUTHORITY,
-                  LawSeverity.FAIL_CLOSED,
-                  "An action without valid authority evidence is not admissible.",
-                  tags=("authority", "safety"))
-        yield Law("LAW-004", "Immutable fields cannot mutate", LawScope.INTEGRITY,
-                  LawSeverity.FAIL_CLOSED,
-                  "Declared immutable project fields cannot be changed by runtime actors.",
-                  tags=("immutable", "integrity"))
-        yield Law("LAW-005", "Canonical fingerprints must match", LawScope.INTEGRITY,
-                  LawSeverity.BLOCK,
-                  "Integrity-critical artifacts must match their expected fingerprint.",
-                  tags=("fingerprint", "integrity"))
-        yield Law("LAW-006", "Required dependencies must resolve", LawScope.STATE,
-                  LawSeverity.FAIL_CLOSED,
-                  "A state transition is invalid when a required dependency is unavailable.",
-                  tags=("dependency", "state"))
-        yield Law("LAW-007", "Unsafe actions are denied", LawScope.SAFETY,
-                  LawSeverity.FAIL_CLOSED,
-                  "Safety-relevant actions must never be authorized by ambiguity alone.",
-                  tags=("safety", "execution"))
-        yield Law("LAW-008", "Untrusted context cannot become authority", LawScope.CONTEXT,
-                  LawSeverity.FAIL_CLOSED,
-                  "Prompt/context material cannot override project law or authority.",
-                  tags=("context", "prompt_injection", "trust"))
-        yield Law("LAW-009", "Repository drift must be visible", LawScope.REPOSITORY,
-                  LawSeverity.ESCALATE,
-                  "Unexpected repository divergence must surface before protected mutation.",
-                  tags=("git", "drift", "repository"))
-        yield Law("LAW-010", "Agent capability cannot exceed contract", LawScope.AGENT,
-                  LawSeverity.BLOCK,
-                  "An agent may act only inside its declared capability boundary.",
-                  tags=("agent", "capability", "boundary"))
-        yield Law("LAW-011", "State transitions require a valid current state", LawScope.STATE,
-                  LawSeverity.BLOCK,
-                  "Unknown, corrupt, or stale state cannot be advanced as if valid.",
-                  tags=("state", "transition", "integrity"))
-        yield Law("LAW-012", "Every protected decision must be auditable", LawScope.EXECUTION,
-                  LawSeverity.ESCALATE,
-                  "Protected actions require enough evidence to reconstruct why they were allowed.",
-                  tags=("audit", "decision", "traceability"))
+# ---------------------------------------------------------------------------
+# LAW INDEX
+# ---------------------------------------------------------------------------
 
-    @staticmethod
-    def _default_invariants() -> Iterable[Invariant]:
-        yield Invariant("INV-001", "Project ID is canonical", LawScope.IDENTITY,
-                        "Runtime state must carry the canonical project ID.",
-                        lambda s: s.get("project_id") == PROJECT_ID)
-        yield Invariant("INV-002", "Architecture version is 40", LawScope.ARCHITECTURE,
-                        "The Project Brain architecture version must remain 40.0.0.",
-                        lambda s: s.get("brain_architecture_version") == BRAIN_ARCHITECTURE_VERSION)
-        yield Invariant("INV-003", "Authority evidence exists", LawScope.AUTHORITY,
-                        "Protected actions require explicit authority evidence.",
-                        lambda s: bool(s.get("authority_evidence")))
-        yield Invariant("INV-004", "Protected mutation has change reason", LawScope.INTEGRITY,
-                        "Protected mutations must state why the change is being attempted.",
-                        lambda s: bool(s.get("change_reason")))
-        yield Invariant("INV-005", "Expected fingerprint exists", LawScope.INTEGRITY,
-                        "Integrity verification must have a reference fingerprint.",
-                        lambda s: bool(s.get("expected_fingerprint")))
-        yield Invariant("INV-006", "Dependencies are resolved", LawScope.STATE,
-                        "Declared required dependencies must be present and resolved.",
-                        lambda s: all(bool(v) for v in s.get("dependencies", {}).values()))
-        yield Invariant("INV-007", "Safety flag is clean", LawScope.SAFETY,
-                        "No protected action may proceed under an explicit unsafe flag.",
-                        lambda s: s.get("safety_blocked") is not True)
-        yield Invariant("INV-008", "Context is trusted", LawScope.CONTEXT,
-                        "Protected decisions must identify trusted context.",
-                        lambda s: s.get("context_trusted") is True)
-        yield Invariant("INV-009", "Repository state is known", LawScope.REPOSITORY,
-                        "Protected repository changes require a known repository state.",
-                        lambda s: s.get("repository_state_known") is True)
-        yield Invariant("INV-010", "Agent capability is bounded", LawScope.AGENT,
-                        "The requested action must be inside the declared agent capability set.",
-                        lambda s: s.get("requested_capability") in set(s.get("allowed_capabilities", ())))
-        yield Invariant("INV-011", "Current state is valid", LawScope.STATE,
-                        "The current runtime state must explicitly be marked valid.",
-                        lambda s: s.get("state_valid") is True)
-        yield Invariant("INV-012", "Audit record exists", LawScope.EXECUTION,
-                        "A protected action must carry an audit record identifier.",
-                        lambda s: bool(s.get("audit_record_id")))
+LAW_INDEX: Final[dict[str, InvariantLaw]] = {
+    law.law_id: law for law in CANONICAL_LAWS
+}
 
-    @property
-    def laws(self) -> Mapping[str, Law]:
-        return dict(self._laws)
 
-    @property
-    def invariants(self) -> Mapping[str, Invariant]:
-        return dict(self._invariants)
+# ---------------------------------------------------------------------------
+# DETERMINISTIC FINGERPRINTING
+# ---------------------------------------------------------------------------
 
-    @property
-    def fingerprint(self) -> str:
-        return self._fingerprint
+def _canonical_material() -> dict[str, object]:
+    """Return deterministic material used for the law fingerprint."""
 
-    def _compute_fingerprint(self) -> str:
-        payload = {
-            "project_id": PROJECT_ID,
-            "layer_id": LAYER_ID,
-            "layer_version": LAYER_VERSION,
-            "brain_architecture_version": BRAIN_ARCHITECTURE_VERSION,
-            "laws": [self._laws[k].canonical() for k in sorted(self._laws)],
-            "invariants": [
-                {
-                    "invariant_id": self._invariants[k].invariant_id,
-                    "name": self._invariants[k].name,
-                    "scope": self._invariants[k].scope.value,
-                    "description": self._invariants[k].description,
-                    "dependencies": list(self._invariants[k].dependencies),
-                }
-                for k in sorted(self._invariants)
-            ],
-        }
-        material = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(material.encode("utf-8")).hexdigest()
+    return {
+        "project_id": PROJECT_ID,
+        "canonical_name": CANONICAL_NAME,
+        "invariant_law_version": INVARIANT_LAW_VERSION,
+        "brain_architecture_version": BRAIN_ARCHITECTURE_VERSION,
+        "layer_number": LAYER_NUMBER,
+        "layer_name": LAYER_NAME,
+        "laws": [
+            {
+                "law_id": law.law_id,
+                "name": law.name,
+                "category": law.category.value,
+                "severity": law.severity.value,
+                "description": law.description,
+                "immutable": law.immutable,
+                "fail_closed": law.fail_closed,
+                "requires_authority": law.requires_authority,
+                "auditable": law.auditable,
+            }
+            for law in CANONICAL_LAWS
+        ],
+    }
 
-    def verify_fingerprint(self, expected: str) -> bool:
-        return bool(expected) and expected == self.fingerprint
 
-    def get_law(self, law_id: str) -> Law:
-        try:
-            return self._laws[law_id]
-        except KeyError as exc:
-            raise KeyError(f"Unknown law: {law_id}") from exc
+def calculate_fingerprint() -> str:
+    """Calculate a deterministic SHA-256 fingerprint of the law set."""
 
-    def get_invariant(self, invariant_id: str) -> Invariant:
-        try:
-            return self._invariants[invariant_id]
-        except KeyError as exc:
-            raise KeyError(f"Unknown invariant: {invariant_id}") from exc
+    payload = json.dumps(
+        _canonical_material(),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
 
-    def evaluate_invariant(self, invariant_id: str, state: Mapping[str, Any]) -> bool:
-        invariant = self.get_invariant(invariant_id)
-        try:
-            return bool(invariant.validator(state))
-        except Exception:
-            return False
+    return sha256(payload.encode("utf-8")).hexdigest()
 
-    def evaluate(self, state: Mapping[str, Any], law_ids: Optional[Iterable[str]] = None) -> LawDecision:
-        """Evaluate selected laws. Unknown laws and evaluator failures deny by default."""
-        selected = tuple(law_ids) if law_ids is not None else tuple(sorted(self._laws))
-        violations = []
-        warnings = []
-        evaluated = []
 
-        for law_id in selected:
-            law = self._laws.get(law_id)
-            if law is None:
-                violations.append(LawViolation(law_id, ViolationCode.UNKNOWN_LAW,
-                                               f"Law '{law_id}' is not registered.", True))
-                continue
-            evaluated.append(law_id)
-            if not law.enabled:
-                violation = LawViolation(
-                    law_id, ViolationCode.LAW_DISABLED,
-                    f"Protected law '{law_id}' is disabled.",
-                    law.severity in {LawSeverity.BLOCK, LawSeverity.FAIL_CLOSED},
-                )
-                (violations if violation.blocking else warnings).append(violation)
-                continue
-            result = self._evaluate_law(law, state)
-            if result is not None:
-                (violations if result.blocking else warnings).append(result)
+LAW_FINGERPRINT: Final[str] = calculate_fingerprint()
 
-        if self._compute_fingerprint() != self.fingerprint:
-            violations.append(LawViolation(
-                "LAYER-05", ViolationCode.FINGERPRINT_MISMATCH,
-                "Invariant/Law registry fingerprint changed during evaluation.", True
-            ))
 
-        return LawDecision(
-            allowed=not any(v.blocking for v in violations),
-            violations=tuple(violations),
-            warnings=tuple(warnings),
-            evaluated_laws=tuple(evaluated),
-            fingerprint=self.fingerprint,
+def verify_fingerprint(expected: str = LAW_FINGERPRINT) -> bool:
+    """Verify that the current canonical law material matches the expected fingerprint."""
+
+    return calculate_fingerprint() == expected
+
+
+# ---------------------------------------------------------------------------
+# LAW LOOKUP
+# ---------------------------------------------------------------------------
+
+def get_law(law_id: str) -> InvariantLaw:
+    """Return one canonical law by ID."""
+
+    try:
+        return LAW_INDEX[law_id]
+    except KeyError as exc:
+        raise KeyError(f"Unknown invariant law: {law_id}") from exc
+
+
+def list_laws(
+    *,
+    category: LawCategory | None = None,
+    minimum_severity: LawSeverity | None = None,
+) -> tuple[InvariantLaw, ...]:
+    """Return laws filtered by category and/or minimum severity."""
+
+    result = CANONICAL_LAWS
+
+    if category is not None:
+        result = tuple(
+            law for law in result
+            if law.category == category
         )
 
-    def _evaluate_law(self, law: Law, state: Mapping[str, Any]) -> Optional[LawViolation]:
-        try:
-            checks = {
-                LawScope.IDENTITY: lambda: state.get("project_id") == PROJECT_ID,
-                LawScope.ARCHITECTURE: lambda: state.get("brain_architecture_version") == BRAIN_ARCHITECTURE_VERSION
-                and state.get("architecture_compliant") is not False,
-                LawScope.AUTHORITY: lambda: bool(state.get("authority_evidence"))
-                and state.get("authority_valid") is not False,
-                LawScope.INTEGRITY: lambda: state.get("immutable_mutation") is not True
-                and state.get("fingerprint_valid") is not False,
-                LawScope.STATE: lambda: state.get("state_valid") is True
-                and all(bool(v) for v in state.get("dependencies", {}).values()),
-                LawScope.EXECUTION: lambda: bool(state.get("audit_record_id")),
-                LawScope.REPOSITORY: lambda: state.get("repository_state_known") is True
-                and state.get("repository_drift") is not True,
-                LawScope.AGENT: lambda: state.get("requested_capability")
-                in set(state.get("allowed_capabilities", ())),
-                LawScope.CONTEXT: lambda: state.get("context_trusted") is True
-                and state.get("prompt_injection_detected") is not True,
-                LawScope.SAFETY: lambda: state.get("safety_blocked") is not True
-                and state.get("unsafe_action") is not True,
-            }
-            if checks[law.scope]():
-                return None
-            code_by_scope = {
-                LawScope.IDENTITY: ViolationCode.IDENTITY_MISMATCH,
-                LawScope.ARCHITECTURE: ViolationCode.ARCHITECTURE_DRIFT,
-                LawScope.AUTHORITY: ViolationCode.AUTHORITY_MISSING,
-                LawScope.INTEGRITY: ViolationCode.IMMUTABLE_MUTATION,
-                LawScope.STATE: ViolationCode.INVALID_STATE,
-                LawScope.EXECUTION: ViolationCode.INTERNAL_ERROR,
-                LawScope.REPOSITORY: ViolationCode.REPOSITORY_DRIFT,
-                LawScope.AGENT: ViolationCode.UNSAFE_ACTION,
-                LawScope.CONTEXT: ViolationCode.CONTEXT_UNTRUSTED,
-                LawScope.SAFETY: ViolationCode.UNSAFE_ACTION,
-            }
-            return LawViolation(
-                law_id=law.law_id,
-                code=code_by_scope[law.scope],
-                message=f"Law failed: {law.name}",
-                blocking=law.severity in {LawSeverity.BLOCK, LawSeverity.FAIL_CLOSED},
-                evidence={"scope": law.scope.value, "state_keys": sorted(state.keys())},
-            )
-        except Exception as exc:
-            return LawViolation(law.law_id, ViolationCode.INTERNAL_ERROR,
-                                f"Law evaluator failed closed: {exc}", True)
+    if minimum_severity is not None:
+        threshold = SEVERITY_RANK[minimum_severity]
+        result = tuple(
+            law for law in result
+            if SEVERITY_RANK[law.severity] >= threshold
+        )
 
-    def validate_registry(self) -> bool:
-        if len(self._laws) != 12 or len(self._invariants) != 12:
-            return False
-        if set(self._laws) != {f"LAW-{i:03d}" for i in range(1, 13)}:
-            return False
-        if set(self._invariants) != {f"INV-{i:03d}" for i in range(1, 13)}:
-            return False
-        if any((not law.name or not law.description or law.immutable is not True) for law in self._laws.values()):
-            return False
-        if any(not callable(i.validator) for i in self._invariants.values()):
-            return False
-        return self._compute_fingerprint() == self.fingerprint
-
-    def self_test(self) -> bool:
-        if not self.validate_registry():
-            return False
-        valid_state = {
-            "project_id": PROJECT_ID,
-            "brain_architecture_version": BRAIN_ARCHITECTURE_VERSION,
-            "authority_evidence": "human_owner:layer-05-test",
-            "authority_valid": True,
-            "immutable_mutation": False,
-            "fingerprint_valid": True,
-            "state_valid": True,
-            "dependencies": {"identity": True, "constitution": True, "authority": True},
-            "audit_record_id": "audit-layer-05-test",
-            "repository_state_known": True,
-            "repository_drift": False,
-            "requested_capability": "validation",
-            "allowed_capabilities": ["validation", "read"],
-            "context_trusted": True,
-            "prompt_injection_detected": False,
-            "safety_blocked": False,
-            "unsafe_action": False,
-        }
-        invalid_state = dict(valid_state)
-        invalid_state["authority_evidence"] = ""
-        invalid_state["authority_valid"] = False
-        return self.evaluate(valid_state).allowed and not self.evaluate(invalid_state).allowed
-
-
-LAW_ENGINE = InvariantLaw()
-
-
-def get_invariant_law() -> InvariantLaw:
-    return LAW_ENGINE
-
-
-def validate_invariant_law() -> bool:
-    return LAW_ENGINE.validate_registry()
-
-
-def self_test() -> bool:
-    return LAW_ENGINE.self_test()
-
-
-def _upstream_binding_check() -> Dict[str, bool]:
-    result = {
-        "project_identity": False,
-        "project_dna": False,
-        "architecture_constitution": False,
-        "project_authority": False,
-    }
-    modules = {
-        "project_identity": "PROJECT_IDENTITY",
-        "project_dna": "PROJECT_DNA",
-        "architecture_constitution": "project_architecture_constitution",
-        "project_authority": "project_authority",
-    }
-    import importlib
-    for key, module_name in modules.items():
-        try:
-            importlib.import_module(module_name)
-            result[key] = True
-        except Exception:
-            result[key] = False
     return result
 
 
+# ---------------------------------------------------------------------------
+# LAW EVALUATION
+# ---------------------------------------------------------------------------
+
+def evaluate_law(
+    law_id: str,
+    *,
+    condition_holds: bool,
+    evidence: str = "",
+    reason: str = "",
+) -> LawViolation | None:
+    """
+    Evaluate one law.
+
+    Returns None when the invariant is satisfied.
+    Returns a deterministic violation record when it is not.
+    """
+
+    law = get_law(law_id)
+
+    if condition_holds:
+        return None
+
+    action = (
+        ViolationAction.FAIL_CLOSED
+        if law.fail_closed
+        else ViolationAction.BLOCK
+    )
+
+    return LawViolation(
+        law_id=law.law_id,
+        severity=law.severity,
+        action=action,
+        reason=reason or law.description,
+        evidence=evidence,
+    )
+
+
+def evaluate_laws(
+    checks: Mapping[str, bool],
+    *,
+    evidence: Mapping[str, str] | None = None,
+    reasons: Mapping[str, str] | None = None,
+) -> LawEvaluation:
+    """
+    Evaluate a set of canonical law checks.
+
+    Unknown law IDs are treated as unsafe and therefore fail closed.
+    Missing canonical checks are also unsafe for critical validation.
+    """
+
+    evidence = evidence or {}
+    reasons = reasons or {}
+
+    violations: list[LawViolation] = []
+    warnings: list[LawViolation] = []
+
+    # Unknown law identifiers are never silently accepted.
+    unknown_ids = sorted(set(checks) - set(LAW_INDEX))
+
+    for law_id in unknown_ids:
+        violations.append(
+            LawViolation(
+                law_id=law_id,
+                severity=LawSeverity.FATAL,
+                action=ViolationAction.FAIL_CLOSED,
+                reason="Unknown law identifier supplied to evaluator.",
+                evidence=evidence.get(law_id, ""),
+            )
+        )
+
+    # Missing checks are treated as unsafe.
+    missing_ids = sorted(set(LAW_INDEX) - set(checks))
+
+    for law_id in missing_ids:
+        law = LAW_INDEX[law_id]
+        violations.append(
+            LawViolation(
+                law_id=law_id,
+                severity=LawSeverity.CRITICAL,
+                action=ViolationAction.FAIL_CLOSED,
+                reason=(
+                    "Canonical law was not evaluated. "
+                    "Critical validation cannot proceed with missing law checks."
+                ),
+                evidence="",
+            )
+        )
+
+    # Evaluate supplied canonical checks.
+    for law_id, condition_holds in sorted(checks.items()):
+        if law_id not in LAW_INDEX:
+            continue
+
+        violation = evaluate_law(
+            law_id,
+            condition_holds=condition_holds,
+            evidence=evidence.get(law_id, ""),
+            reason=reasons.get(law_id, ""),
+        )
+
+        if violation is None:
+            continue
+
+        if violation.severity in {
+            LawSeverity.INFO,
+            LawSeverity.WARNING,
+        }:
+            warnings.append(violation)
+        else:
+            violations.append(violation)
+
+    fail_closed = any(
+        violation.action == ViolationAction.FAIL_CLOSED
+        for violation in violations
+    )
+
+    allowed = not violations
+
+    evaluation_material = {
+        "allowed": allowed,
+        "fail_closed": fail_closed,
+        "violations": [
+            {
+                "law_id": violation.law_id,
+                "severity": violation.severity.value,
+                "action": violation.action.value,
+                "reason": violation.reason,
+                "evidence": violation.evidence,
+            }
+            for violation in violations
+        ],
+        "warnings": [
+            {
+                "law_id": warning.law_id,
+                "severity": warning.severity.value,
+                "action": warning.action.value,
+                "reason": warning.reason,
+                "evidence": warning.evidence,
+            }
+            for warning in warnings
+        ],
+    }
+
+    result_payload = json.dumps(
+        evaluation_material,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+
+    evaluation_fingerprint = sha256(
+        result_payload.encode("utf-8")
+    ).hexdigest()
+
+    return LawEvaluation(
+        allowed=allowed,
+        fail_closed=fail_closed,
+        violations=tuple(
+            sorted(
+                violations,
+                key=lambda item: (
+                    -SEVERITY_RANK[item.severity],
+                    item.law_id,
+                ),
+            )
+        ),
+        warnings=tuple(
+            sorted(
+                warnings,
+                key=lambda item: (
+                    -SEVERITY_RANK[item.severity],
+                    item.law_id,
+                ),
+            )
+        ),
+        fingerprint=evaluation_fingerprint,
+    )
+
+
+# ---------------------------------------------------------------------------
+# FAIL-CLOSED GATE
+# ---------------------------------------------------------------------------
+
+def assert_laws_hold(
+    checks: Mapping[str, bool],
+    *,
+    evidence: Mapping[str, str] | None = None,
+    reasons: Mapping[str, str] | None = None,
+) -> LawEvaluation:
+    """
+    Enforce canonical laws.
+
+    Raises RuntimeError when any blocking violation exists.
+    """
+
+    evaluation = evaluate_laws(
+        checks,
+        evidence=evidence,
+        reasons=reasons,
+    )
+
+    if not evaluation.allowed:
+        primary = evaluation.violations[0]
+
+        raise RuntimeError(
+            "Invariant / Law gate failed: "
+            f"{primary.law_id} | "
+            f"{primary.severity.value} | "
+            f"{primary.reason}"
+        )
+
+    return evaluation
+
+
+# ---------------------------------------------------------------------------
+# STRUCTURAL VALIDATION
+# ---------------------------------------------------------------------------
+
+def validate_laws() -> tuple[str, ...]:
+    """
+    Validate the canonical law set.
+
+    Returns an empty tuple on success or deterministic error messages.
+    """
+
+    errors: list[str] = []
+
+    if PROJECT_ID != "intellect-media":
+        errors.append("Project ID mismatch.")
+
+    if CANONICAL_NAME != "Intellect Media":
+        errors.append("Canonical project name mismatch.")
+
+    if LAYER_NUMBER != 5:
+        errors.append("Layer number must be 5.")
+
+    if LAYER_NAME != "Invariant / Law":
+        errors.append("Layer name mismatch.")
+
+    if BRAIN_ARCHITECTURE_VERSION != "40.0.0":
+        errors.append("Brain architecture version mismatch.")
+
+    if len(CANONICAL_LAWS) != EXPECTED_LAW_COUNT:
+        errors.append(
+            f"Expected {EXPECTED_LAW_COUNT} laws; "
+            f"found {len(CANONICAL_LAWS)}."
+        )
+
+    law_ids = [law.law_id for law in CANONICAL_LAWS]
+
+    if len(set(law_ids)) != len(law_ids):
+        errors.append("Duplicate law IDs detected.")
+
+    expected_ids = [
+        f"LAW-{index:03d}"
+        for index in range(1, EXPECTED_LAW_COUNT + 1)
+    ]
+
+    if law_ids != expected_ids:
+        errors.append(
+            "Law IDs must remain sequential from "
+            "LAW-001 through LAW-012."
+        )
+
+    for law in CANONICAL_LAWS:
+        if not law.name.strip():
+            errors.append(f"{law.law_id} has an empty name.")
+
+        if not law.description.strip():
+            errors.append(f"{law.law_id} has an empty description.")
+
+        if law.immutable is not True:
+            errors.append(
+                f"{law.law_id} must remain immutable."
+            )
+
+        if law.requires_authority is not True:
+            errors.append(
+                f"{law.law_id} must require authority."
+            )
+
+        if law.auditable is not True:
+            errors.append(
+                f"{law.law_id} must remain auditable."
+            )
+
+    if set(LAW_INDEX) != set(law_ids):
+        errors.append("Law index does not match canonical laws.")
+
+    if not verify_fingerprint():
+        errors.append("Canonical law fingerprint verification failed.")
+
+    return tuple(errors)
+
+
+# ---------------------------------------------------------------------------
+# SELF-TEST
+# ---------------------------------------------------------------------------
+
+def self_test() -> None:
+    """Run deterministic Layer 05 self-tests."""
+
+    errors = validate_laws()
+
+    if errors:
+        joined = "\n".join(f"- {error}" for error in errors)
+        raise AssertionError(
+            "Invariant / Law structural validation failed:\n"
+            f"{joined}"
+        )
+
+    # Complete-validity test.
+    valid_checks = {
+        law.law_id: True
+        for law in CANONICAL_LAWS
+    }
+
+    evaluation = evaluate_laws(valid_checks)
+
+    assert evaluation.allowed is True
+    assert evaluation.fail_closed is False
+    assert not evaluation.violations
+    assert len(evaluation.fingerprint) == 64
+
+    # Deliberate violation test.
+    invalid_checks = dict(valid_checks)
+    invalid_checks["LAW-004"] = False
+
+    invalid_evaluation = evaluate_laws(invalid_checks)
+
+    assert invalid_evaluation.allowed is False
+    assert invalid_evaluation.fail_closed is True
+    assert any(
+        violation.law_id == "LAW-004"
+        for violation in invalid_evaluation.violations
+    )
+
+    # Missing-law fail-closed test.
+    incomplete_checks = dict(valid_checks)
+    incomplete_checks.pop("LAW-005")
+
+    incomplete_evaluation = evaluate_laws(incomplete_checks)
+
+    assert incomplete_evaluation.allowed is False
+    assert incomplete_evaluation.fail_closed is True
+    assert any(
+        violation.law_id == "LAW-005"
+        for violation in incomplete_evaluation.violations
+    )
+
+    # Unknown-law fail-closed test.
+    unknown_checks = dict(valid_checks)
+    unknown_checks["LAW-999"] = True
+
+    unknown_evaluation = evaluate_laws(unknown_checks)
+
+    assert unknown_evaluation.allowed is False
+    assert unknown_evaluation.fail_closed is True
+    assert any(
+        violation.law_id == "LAW-999"
+        for violation in unknown_evaluation.violations
+    )
+
+    # Fingerprint must remain deterministic.
+    first = calculate_fingerprint()
+    second = calculate_fingerprint()
+
+    assert first == second
+    assert first == LAW_FINGERPRINT
+    assert len(first) == 64
+
+
+# ---------------------------------------------------------------------------
+# PUBLIC SUMMARY
+# ---------------------------------------------------------------------------
+
+def get_law_summary() -> dict[str, object]:
+    """Return a machine-readable summary of Layer 05."""
+
+    return {
+        "project_id": PROJECT_ID,
+        "canonical_name": CANONICAL_NAME,
+        "layer_number": LAYER_NUMBER,
+        "layer_name": LAYER_NAME,
+        "version": INVARIANT_LAW_VERSION,
+        "brain_architecture_version": BRAIN_ARCHITECTURE_VERSION,
+        "law_count": len(CANONICAL_LAWS),
+        "immutable_law_count": sum(
+            1 for law in CANONICAL_LAWS if law.immutable
+        ),
+        "fail_closed_law_count": sum(
+            1 for law in CANONICAL_LAWS if law.fail_closed
+        ),
+        "auditable_law_count": sum(
+            1 for law in CANONICAL_LAWS if law.auditable
+        ),
+        "fingerprint": LAW_FINGERPRINT,
+    }
+
+
+# ---------------------------------------------------------------------------
+# EXECUTION ENTRYPOINT
+# ---------------------------------------------------------------------------
+
 if __name__ == "__main__":
-    engine = get_invariant_law()
-    bindings = _upstream_binding_check()
-    print(f"Intellect Media Invariant / Law v{LAYER_VERSION}: {'PASS' if engine.self_test() else 'FAIL'}")
-    print(f"Project ID              : {PROJECT_ID}")
-    print(f"Layer                   : {LAYER_ID} — {LAYER_NAME}")
-    print(f"Brain Architecture      : v{BRAIN_ARCHITECTURE_VERSION}")
-    print(f"Laws                    : {len(engine.laws)}")
-    print(f"Invariants              : {len(engine.invariants)}")
-    print(f"Fingerprint             : {engine.fingerprint}")
-    print("Upstream Bindings       : " + ", ".join(
-        f"{key}={'PASS' if value else 'WARN'}" for key, value in bindings.items()
-    ))
+    self_test()
+
+    summary = get_law_summary()
+
+    print(
+        f"Intellect Media Invariant / Law v{INVARIANT_LAW_VERSION}: PASS"
+    )
+    print(f"Project ID          : {summary['project_id']}")
+    print(
+        f"Layer               : "
+        f"{summary['layer_number']} — {summary['layer_name']}"
+    )
+    print(
+        f"Brain Architecture  : "
+        f"v{summary['brain_architecture_version']}"
+    )
+    print(f"Laws                : {summary['law_count']}")
+    print(
+        f"Immutable Laws      : "
+        f"{summary['immutable_law_count']}"
+    )
+    print(
+        f"Fail-Closed Laws    : "
+        f"{summary['fail_closed_law_count']}"
+    )
+    print(
+        f"Auditable Laws      : "
+        f"{summary['auditable_law_count']}"
+    )
+    print(f"Fingerprint         : {summary['fingerprint']}")
